@@ -4,6 +4,7 @@ import aiohttp
 import json
 import os
 import asyncio
+import re
 from datetime import datetime, timezone
 
 # ── Config ────────────────────────────────────────────────────────────────────
@@ -231,28 +232,44 @@ STATE_FILE = "state.json"
 # ──────────────────────────────────────────────────────────────────────────────
 
 
-def load_state():
+def get_link_id(url: str) -> str:
+    """
+    Extract the stable filename from a rbxcdn URL so we're not fooled by
+    rotating query-string tokens. For example:
+      https://tr.rbxcdn.com/abc123/image.png?token=xyz  →  abc123/image.png
+    If we can't parse it we fall back to the full URL.
+    """
+    # Grab everything between the host and the query string
+    match = re.search(r"rbxcdn\.com/(.+?)(?:\?|$)", url)
+    return match.group(1) if match else url
+
+
+def load_state() -> dict:
     if os.path.exists(STATE_FILE):
         with open(STATE_FILE) as f:
             return json.load(f)
     return {}
 
 
-def save_state(state):
+def save_state(state: dict):
     with open(STATE_FILE, "w") as f:
         json.dump(state, f, indent=2)
 
 
-def extract_cdn_links(data):
-    links = set()
+def extract_cdn_links(data: dict) -> dict[str, str]:
+    """
+    Returns a dict of  { stable_id: full_url }
+    so we compare by stable ID but still send the full URL.
+    """
+    links: dict[str, str] = {}
     for item in data.get("data", []):
         url = item.get("imageUrl", "")
         if url and "rbxcdn" in url:
-            links.add(url)
+            links[get_link_id(url)] = url
         for thumb in item.get("thumbnails", []):
             url = thumb.get("imageUrl", "")
             if url and "rbxcdn" in url:
-                links.add(url)
+                links[get_link_id(url)] = url
     return links
 
 
@@ -272,7 +289,8 @@ async def send_embed(channel, api, link, title, color):
 # ── Bot ───────────────────────────────────────────────────────────────────────
 intents = discord.Intents.default()
 bot = discord.Client(intents=intents)
-state = {}
+state: dict = {}
+first_run = True
 
 
 @bot.event
@@ -286,7 +304,7 @@ async def on_ready():
 
 @tasks.loop(seconds=CHECK_INTERVAL)
 async def monitor_loop():
-    global state
+    global state, first_run
 
     channel = bot.get_channel(CHANNEL_ID)
     if channel is None:
@@ -305,37 +323,49 @@ async def monitor_loop():
                 print(f"[{datetime.now():%H:%M:%S}] {key}: fetch error — {exc}")
                 continue
 
-            current_links = extract_cdn_links(data)
-            previous_links = set(state.get(key, []))
+            current = extract_cdn_links(data)           # { stable_id: full_url }
+            previous_ids: set = set(state.get(key, {}).keys() if isinstance(state.get(key), dict) else state.get(key, []))
 
-            new_links     = current_links - previous_links
-            removed_links = previous_links - current_links
-
-            if new_links:
-                state[key] = list(current_links)
+            # First run — silently save state, send nothing
+            if first_run:
+                state[key] = current
                 save_state(state)
-                for link in sorted(new_links):
-                    await send_embed(channel, api, link, "New CDN link detected", 0x00FF88)
-                    print(f"[{datetime.now():%H:%M:%S}] NEW  {key}: {link}")
+                print(f"[{datetime.now():%H:%M:%S}] INIT {key}: {len(current)} link(s) saved")
+                continue
+
+            current_ids  = set(current.keys())
+            new_ids      = current_ids - previous_ids
+            removed_ids  = previous_ids - current_ids
+
+            if new_ids:
+                state[key] = current
+                save_state(state)
+                for sid in sorted(new_ids):
+                    full_url = current[sid]
+                    await send_embed(channel, api, full_url, "New CDN link detected", 0x00FF88)
+                    print(f"[{datetime.now():%H:%M:%S}] NEW  {key}: {full_url}")
                     await asyncio.sleep(1)
 
-            if removed_links:
-                state[key] = list(current_links)
+            if removed_ids:
+                state[key] = current
                 save_state(state)
-                for link in sorted(removed_links):
+                for sid in sorted(removed_ids):
                     embed = discord.Embed(
                         title=f"⚠️  CDN link removed — {api['label']}",
                         color=0xFF4444,
                         timestamp=datetime.now(timezone.utc),
                     )
-                    embed.add_field(name="🔗 Removed URL", value=f"```\n{link}\n```", inline=False)
+                    embed.add_field(name="🔗 Removed ID", value=f"```\n{sid}\n```", inline=False)
                     embed.set_footer(text="Roblox CDN Monitor")
                     await channel.send(content="@everyone", embed=embed)
-                    print(f"[{datetime.now():%H:%M:%S}] GONE {key}: {link}")
+                    print(f"[{datetime.now():%H:%M:%S}] GONE {key}: {sid}")
                     await asyncio.sleep(1)
 
-            if not new_links and not removed_links:
-                print(f"[{datetime.now():%H:%M:%S}] {key}: no changes ({len(current_links)} link(s))")
+            if not new_ids and not removed_ids:
+                print(f"[{datetime.now():%H:%M:%S}] {key}: no changes ({len(current_ids)} link(s))")
+
+    if first_run:
+        first_run = False
 
 
 @monitor_loop.before_loop
