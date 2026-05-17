@@ -39,11 +39,6 @@ APIS = {
         "url": "https://thumbnails.roblox.com/v1/places/gameicons?placeIds=7182690801&size=512x512&format=Png&isCircular=false",
         "emoji": "🎮",
     },
-    "icon_pet_sim_99": {
-        "label": "🎲 Pet Simulator 99! 🌌",
-        "url": "https://thumbnails.roblox.com/v1/places/gameicons?placeIds=8737899170&size=512x512&format=Png&isCircular=false",
-        "emoji": "🎮",
-    },
     "icon_unknown": {
         "label": "🔎🔎🔎🔎",
         "url": "https://thumbnails.roblox.com/v1/places/gameicons?placeIds=9866021734&size=512x512&format=Png&isCircular=false",
@@ -144,11 +139,6 @@ APIS = {
     "thumb_pet_sim_x_indev": {
         "label": "Pet Simulator X [In-Dev]",
         "url": "https://thumbnails.roblox.com/v1/games/multiget/thumbnails?universeIds=2790186720&countPerUniverse=10&defaults=true&size=768x432&format=Png&isCircular=false",
-        "emoji": "🖼️",
-    },
-    "thumb_pet_sim_99": {
-        "label": "🎲 Pet Simulator 99! 👑",
-        "url": "https://thumbnails.roblox.com/v1/games/multiget/thumbnails?universeIds=3317771874&countPerUniverse=10&defaults=true&size=768x432&format=Png&isCircular=false",
         "emoji": "🖼️",
     },
     "thumb_unknown": {
