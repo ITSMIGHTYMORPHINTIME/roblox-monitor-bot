@@ -9,7 +9,7 @@ from datetime import datetime, timezone
 
 # ── Config ────────────────────────────────────────────────────────────────────
 DISCORD_TOKEN  = os.getenv("DISCORD_BOT_TOKEN")
-CHANNEL_ID     = int(os.getenv("CHANNEL_ID", "1426992316098281514"))
+CHANNEL_ID     = int(os.getenv("CHANNEL_ID", "1513030378971992125"))
 CHECK_INTERVAL = 30
 
 APIS = {
@@ -273,7 +273,7 @@ async def send_embed(channel, api, link, title, color):
     embed.add_field(name="🌐 Preview", value=f"[Open image]({link})", inline=True)
     embed.set_image(url=link)
     embed.set_footer(text="Roblox CDN Monitor")
-    await channel.send(content="@everyone", embed=embed)
+    await channel.send(embed=embed)
 
 
 # ── Bot ───────────────────────────────────────────────────────────────────────
@@ -347,7 +347,7 @@ async def monitor_loop():
                     )
                     embed.add_field(name="🔗 Removed ID", value=f"```\n{sid}\n```", inline=False)
                     embed.set_footer(text="Roblox CDN Monitor")
-                    await channel.send(content="@everyone", embed=embed)
+                    await channel.send(embed=embed)
                     print(f"[{datetime.now():%H:%M:%S}] GONE {key}: {sid}")
                     await asyncio.sleep(1)
 
