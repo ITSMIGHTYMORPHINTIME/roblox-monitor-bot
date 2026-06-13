@@ -88,7 +88,6 @@ async def send_embed(channel, api, link, title, color):
 intents = discord.Intents.default()
 bot = discord.Client(intents=intents)
 state: dict = {}
-first_run = True
 
 
 @bot.event
@@ -102,7 +101,7 @@ async def on_ready():
 
 @tasks.loop(seconds=CHECK_INTERVAL)
 async def monitor_loop():
-    global state, first_run
+    global state
 
     channel = bot.get_channel(CHANNEL_ID)
     if channel is None:
@@ -123,13 +122,6 @@ async def monitor_loop():
 
             current = extract_cdn_links(data)           # { stable_id: full_url }
             previous_ids: set = set(state.get(key, {}).keys() if isinstance(state.get(key), dict) else state.get(key, []))
-
-            # First run — silently save state, send nothing
-            if first_run:
-                state[key] = current
-                save_state(state)
-                print(f"[{datetime.now():%H:%M:%S}] INIT {key}: {len(current)} link(s) saved")
-                continue
 
             current_ids  = set(current.keys())
             new_ids      = current_ids - previous_ids
@@ -161,9 +153,6 @@ async def monitor_loop():
 
             if not new_ids and not removed_ids:
                 print(f"[{datetime.now():%H:%M:%S}] {key}: no changes ({len(current_ids)} link(s))")
-
-    if first_run:
-        first_run = False
 
 
 @monitor_loop.before_loop
